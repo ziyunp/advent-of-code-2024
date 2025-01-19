@@ -1,3 +1,190 @@
+// key: depends on array
+const processData = (data) => {
+  const orderingRules = {},
+    updates = [];
+  const dataArr = data.split("\n");
+  for (const line of dataArr) {
+    if (line.includes("|")) {
+      const pageOrder = line.split("|");
+      const before = parseInt(pageOrder[0].trim());
+      const after = parseInt(pageOrder[1].trim());
+      if (orderingRules[after] === undefined) {
+        orderingRules[after] = [before];
+      } else {
+        orderingRules[after].push(before);
+      }
+    } else if (line.includes(",")) {
+      const pages = line.split(",");
+      const pagesArr = pages.map((page) => parseInt(page.trim()));
+      updates.push(pagesArr);
+    }
+  }
+  return {
+    orderingRules,
+    updates,
+  };
+};
+const isValidUpdate = (update, orderingRules) => {
+  for (let i = 0; i < update.length; i++) {
+    const curr = update[i];
+    const dependsOn = orderingRules[curr];
+    if (dependsOn !== undefined) {
+      for (const dependentPage of dependsOn) {
+        const dependentPageIndex = update.indexOf(dependentPage);
+        if (dependentPageIndex > i) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+};
+const part1 = (payload) => {
+  const { orderingRules, updates } = processData(payload);
+  // console.log("orderingRules", orderingRules);
+  // console.log("updates", updates);
+  let sum = 0;
+  for (const update of updates) {
+    if (isValidUpdate(update, orderingRules)) {
+      // console.log("valid: ", update);
+      const mid = Math.floor(update.length / 2);
+      sum += update[mid];
+    }
+  }
+  return sum;
+};
+const reorderUpdate = (update, orderingRules) => {
+  const reordered = [...update];
+  for (let i = 0; i < reordered.length; i++) {
+    const curr = reordered[i];
+    const dependsOn = orderingRules[curr];
+    if (dependsOn !== undefined) {
+      for (const dependentPage of dependsOn) {
+        const dependentPageIndex = reordered.indexOf(dependentPage);
+        if (dependentPageIndex > i) {
+          // insert to front, and reorder from this index
+          reordered.splice(dependentPageIndex, 1);
+          reordered.splice(i, 0, dependentPage);
+          console.log("reordered", i, reordered);
+          i--;
+          break;
+        }
+      }
+    }
+  }
+  return reordered;
+};
+const part2 = (payload) => {
+  const { orderingRules, updates } = processData(payload);
+  let sum = 0;
+  for (const update of updates) {
+    if (!isValidUpdate(update, orderingRules)) {
+      // reorder
+      const reordered = reorderUpdate(update, orderingRules);
+      const mid = Math.floor(reordered.length / 2);
+      sum += reordered[mid];
+    }
+  }
+  return sum;
+};
+const buildGraphForTS = (data) => {
+  const childToParentsMap = {},
+    parentToChildrenMap = {},
+    updates = [];
+  const dataArr = data.split("\n");
+  for (const line of dataArr) {
+    if (line.includes("|")) {
+      const pageOrder = line.split("|");
+      const parent = parseInt(pageOrder[0].trim());
+      const child = parseInt(pageOrder[1].trim());
+      if (childToParentsMap[child] === undefined) {
+        childToParentsMap[child] = [parent];
+      } else {
+        childToParentsMap[child].push(parent);
+      }
+      if (parentToChildrenMap[parent] === undefined) {
+        parentToChildrenMap[parent] = [];
+      }
+      if (parentToChildrenMap[child] === undefined) {
+        parentToChildrenMap[child] = [];
+      }
+      parentToChildrenMap[parent].push(child);
+    } else if (line.includes(",")) {
+      const pages = line.split(",");
+      const pagesArr = pages.map((page) => parseInt(page.trim()));
+      updates.push(pagesArr);
+    }
+  }
+  return {
+    childToParentsMap,
+    parentToChildrenMap,
+    updates,
+  };
+};
+const reorderUpdateWithTS = (
+  update,
+  childToParentsMap,
+  parentToChildrenMap
+) => {
+  const sorted = [];
+  const sources = [];
+  const inDegrees = {};
+  // filter and get inDegrees
+  for (const node of update) {
+    const dependsOn =
+      childToParentsMap[node]?.filter((p) => update.includes(p)) ?? [];
+    inDegrees[node] = dependsOn.length;
+    if (inDegrees[node] === 0) {
+      sources.push(node);
+    }
+  }
+  while (sources.length > 0) {
+    const source = sources.pop();
+    const children = parentToChildrenMap[source];
+    for (const c of children) {
+      if (c in inDegrees) {
+        inDegrees[c]--;
+        if (inDegrees[c] === 0) {
+          sources.push(c);
+        }
+      }
+    }
+    sorted.push(source);
+  }
+  return sorted;
+};
+const part2TopologicalSort = (payload) => {
+  const { childToParentsMap, parentToChildrenMap, updates } =
+    buildGraphForTS(payload);
+  let sum = 0;
+  for (const update of updates) {
+    if (!isValidUpdate(update, childToParentsMap)) {
+      // reorder
+      const reordered = reorderUpdateWithTS(
+        update,
+        childToParentsMap,
+        parentToChildrenMap
+      );
+      const mid = Math.floor(reordered.length / 2);
+      sum += reordered[mid];
+    }
+  }
+  return sum;
+};
+
+// 97, 75, 47, 29, 13
+// i: 0, 97
+// i: 1, 13 -> 29, 75
+//    potential i: 1, 29 -> 75, 47
+//      potential i: 1, 75 -> (/)
+//      potential i: 1, 47 -> 75 (i = 1)
+//      --> 75, 47
+//    -->  75, 47, 29
+//    potential i: 1, 75 (/)
+// --> 75, 47, 29, 13
+//
+console.log(part2TopologicalSort(data));
+
 const test = `47|53
 97|13
 97|61
@@ -1386,189 +1573,3 @@ const data = `86|99
 97,83,61,32,11,73,98,25,17,31,55,33,79,36,85,34,21
 85,21,51,95,16,94,77,91,26,65,49,89,15
 72,29,32,69,49,83,89,15,42,27,65`;
-// key: depends on array
-const processData = (data) => {
-  const orderingRules = {},
-    updates = [];
-  const dataArr = data.split("\n");
-  for (const line of dataArr) {
-    if (line.includes("|")) {
-      const pageOrder = line.split("|");
-      const before = parseInt(pageOrder[0].trim());
-      const after = parseInt(pageOrder[1].trim());
-      if (orderingRules[after] === undefined) {
-        orderingRules[after] = [before];
-      } else {
-        orderingRules[after].push(before);
-      }
-    } else if (line.includes(",")) {
-      const pages = line.split(",");
-      const pagesArr = pages.map((page) => parseInt(page.trim()));
-      updates.push(pagesArr);
-    }
-  }
-  return {
-    orderingRules,
-    updates,
-  };
-};
-const isValidUpdate = (update, orderingRules) => {
-  for (let i = 0; i < update.length; i++) {
-    const curr = update[i];
-    const dependsOn = orderingRules[curr];
-    if (dependsOn !== undefined) {
-      for (const dependentPage of dependsOn) {
-        const dependentPageIndex = update.indexOf(dependentPage);
-        if (dependentPageIndex > i) {
-          return false;
-        }
-      }
-    }
-  }
-  return true;
-};
-const part1 = (payload) => {
-  const { orderingRules, updates } = processData(payload);
-  // console.log("orderingRules", orderingRules);
-  // console.log("updates", updates);
-  let sum = 0;
-  for (const update of updates) {
-    if (isValidUpdate(update, orderingRules)) {
-      // console.log("valid: ", update);
-      const mid = Math.floor(update.length / 2);
-      sum += update[mid];
-    }
-  }
-  return sum;
-};
-const reorderUpdate = (update, orderingRules) => {
-  const reordered = [...update];
-  for (let i = 0; i < reordered.length; i++) {
-    const curr = reordered[i];
-    const dependsOn = orderingRules[curr];
-    if (dependsOn !== undefined) {
-      for (const dependentPage of dependsOn) {
-        const dependentPageIndex = reordered.indexOf(dependentPage);
-        if (dependentPageIndex > i) {
-          // insert to front, and reorder from this index
-          reordered.splice(dependentPageIndex, 1);
-          reordered.splice(i, 0, dependentPage);
-          console.log("reordered", i, reordered);
-          i--;
-          break;
-        }
-      }
-    }
-  }
-  return reordered;
-};
-const part2 = (payload) => {
-  const { orderingRules, updates } = processData(payload);
-  let sum = 0;
-  for (const update of updates) {
-    if (!isValidUpdate(update, orderingRules)) {
-      // reorder
-      const reordered = reorderUpdate(update, orderingRules);
-      const mid = Math.floor(reordered.length / 2);
-      sum += reordered[mid];
-    }
-  }
-  return sum;
-};
-const buildGraphForTS = (data) => {
-  const childToParentsMap = {},
-    parentToChildrenMap = {},
-    updates = [];
-  const dataArr = data.split("\n");
-  for (const line of dataArr) {
-    if (line.includes("|")) {
-      const pageOrder = line.split("|");
-      const parent = parseInt(pageOrder[0].trim());
-      const child = parseInt(pageOrder[1].trim());
-      if (childToParentsMap[child] === undefined) {
-        childToParentsMap[child] = [parent];
-      } else {
-        childToParentsMap[child].push(parent);
-      }
-      if (parentToChildrenMap[parent] === undefined) {
-        parentToChildrenMap[parent] = [];
-      }
-      if (parentToChildrenMap[child] === undefined) {
-        parentToChildrenMap[child] = [];
-      }
-      parentToChildrenMap[parent].push(child);
-    } else if (line.includes(",")) {
-      const pages = line.split(",");
-      const pagesArr = pages.map((page) => parseInt(page.trim()));
-      updates.push(pagesArr);
-    }
-  }
-  return {
-    childToParentsMap,
-    parentToChildrenMap,
-    updates,
-  };
-};
-const reorderUpdateWithTS = (
-  update,
-  childToParentsMap,
-  parentToChildrenMap
-) => {
-  const sorted = [];
-  const sources = [];
-  const inDegrees = {};
-  // filter and get inDegrees
-  for (const node of update) {
-    const dependsOn =
-      childToParentsMap[node]?.filter((p) => update.includes(p)) ?? [];
-    inDegrees[node] = dependsOn.length;
-    if (inDegrees[node] === 0) {
-      sources.push(node);
-    }
-  }
-  while (sources.length > 0) {
-    const source = sources.pop();
-    const children = parentToChildrenMap[source];
-    for (const c of children) {
-      if (c in inDegrees) {
-        inDegrees[c]--;
-        if (inDegrees[c] === 0) {
-          sources.push(c);
-        }
-      }
-    }
-    sorted.push(source);
-  }
-  return sorted;
-};
-const part2TopologicalSort = (payload) => {
-  const { childToParentsMap, parentToChildrenMap, updates } =
-    buildGraphForTS(payload);
-  let sum = 0;
-  for (const update of updates) {
-    if (!isValidUpdate(update, childToParentsMap)) {
-      // reorder
-      const reordered = reorderUpdateWithTS(
-        update,
-        childToParentsMap,
-        parentToChildrenMap
-      );
-      const mid = Math.floor(reordered.length / 2);
-      sum += reordered[mid];
-    }
-  }
-  return sum;
-};
-
-// 97, 75, 47, 29, 13
-// i: 0, 97
-// i: 1, 13 -> 29, 75
-//    potential i: 1, 29 -> 75, 47
-//      potential i: 1, 75 -> (/)
-//      potential i: 1, 47 -> 75 (i = 1)
-//      --> 75, 47
-//    -->  75, 47, 29
-//    potential i: 1, 75 (/)
-// --> 75, 47, 29, 13
-//
-console.log(part2TopologicalSort(data));

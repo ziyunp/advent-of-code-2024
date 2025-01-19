@@ -1,3 +1,38 @@
+const isPossible = (acc, target, index, operator, nums) => {
+  if (index >= nums.length) {
+    return acc === target;
+  }
+  const newAcc =
+    operator === "+"
+      ? acc + nums[index]
+      : operator === "*"
+      ? acc * nums[index]
+      : parseInt(`${acc}${nums[index]}`);
+
+  return (
+    isPossible(newAcc, target, index + 1, "+", nums) ||
+    isPossible(newAcc, target, index + 1, "*", nums) ||
+    isPossible(newAcc, target, index + 1, "||", nums)
+  );
+};
+const part1 = (data) => {
+  const processed = processData(data);
+  let sum = 0;
+  for (const row of processed) {
+    const { target, nums } = row;
+    if (isPossible(nums[0], target, 1, "+", nums)) {
+      sum += target;
+    } else if (isPossible(nums[0], target, 1, "*", nums)) {
+      sum += target;
+    } else if (isPossible(nums[0], target, 1, "||", nums)) {
+      sum += target;
+    }
+  }
+  return sum;
+};
+
+console.log(part1(data));
+
 const test = `190: 10 19
 3267: 81 40 27
 83: 17 5
@@ -872,37 +907,3 @@ const processData = (data) => {
     };
   });
 };
-const isPossible = (acc, target, index, operator, nums) => {
-  if (index >= nums.length) {
-    return acc === target;
-  }
-  const newAcc =
-    operator === "+"
-      ? acc + nums[index]
-      : operator === "*"
-      ? acc * nums[index]
-      : parseInt(`${acc}${nums[index]}`);
-
-  return (
-    isPossible(newAcc, target, index + 1, "+", nums) ||
-    isPossible(newAcc, target, index + 1, "*", nums) ||
-    isPossible(newAcc, target, index + 1, "||", nums)
-  );
-};
-const part1 = (data) => {
-  const processed = processData(data);
-  let sum = 0;
-  for (const row of processed) {
-    const { target, nums } = row;
-    if (isPossible(nums[0], target, 1, "+", nums)) {
-      sum += target;
-    } else if (isPossible(nums[0], target, 1, "*", nums)) {
-      sum += target;
-    } else if (isPossible(nums[0], target, 1, "||", nums)) {
-      sum += target;
-    }
-  }
-  return sum;
-};
-
-console.log(part1(data));
